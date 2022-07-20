@@ -81,7 +81,7 @@ int setup_ip_header(const char *src_ip, const char *dst_ip, char *datagram,
 	iph->ttl = 255;
 	iph->protocol = IPPROTO_UDP;
 	iph->check = 0;		//Set to 0 before calculating checksum
-	iph->saddr = inet_addr ( src_ip );	//Spoof the source ip address
+	iph->saddr = inet_addr (src_ip);	//Spoof the source ip address
 	iph->daddr = sin->sin_addr.s_addr;
 
 	//Ip checksum
@@ -106,21 +106,21 @@ int setup_udp_header(uint16_t src, uint16_t dst, char *datagram, struct pseudo_h
     return 0;
 }
 
-void calculate_udp_checksum(const char *data, int data_len, char *datagram, struct pseudo_header *psh) {
-    char *data_ptr, *pseudo_gram;
+void calculate_udp_checksum(int data_len, char *datagram, struct pseudo_header *psh) {
+    char *pseudo_gram;
     int pseudo_hdr_size;
 	struct udphdr *udph = (struct udphdr *) (datagram + sizeof (struct ip));
 
 	psh->udp_length = htons(sizeof(struct udphdr) + data_len );
-    data_ptr = datagram + sizeof(struct iphdr) + sizeof(struct udphdr);
-    memcpy(data_ptr, data, data_len);
 
-    pseudo_hdr_size = sizeof(struct pseudo_header) + sizeof(struct udphdr) + strlen(data);
+    pseudo_hdr_size = sizeof(struct pseudo_header) + sizeof(struct udphdr) + data_len;
     pseudo_gram = (char *)malloc(pseudo_hdr_size);
+
+	udph->len = htons(8 + data_len);
     memcpy(pseudo_gram, (char *)psh, sizeof(struct pseudo_header));
     memcpy(pseudo_gram + sizeof(struct pseudo_header), udph, sizeof(struct udphdr) + data_len);
-	udph->len = htons(8 + data_len);
 	udph->check = csum( (unsigned short*) pseudo_gram , pseudo_hdr_size);
+    printf("calculated checksum: %x\n", udph->check);
 }
 
 int send_raw_socket(const char *data, int data_len, int sock) {
@@ -128,17 +128,21 @@ int send_raw_socket(const char *data, int data_len, int sock) {
     struct pseudo_header psh = {0};
     struct iphdr *iph = (struct iphdr *) datagram;
 	struct sockaddr_in sin;
-    const char *dst_ip = "172.16.1.56";
-    const char *src_ip = "172.16.1.137";
+    const char *dst_ip = "1.1.1.56";
+    const char *src_ip = "1.1.1.137";
     uint16_t dst_port = 5060;
+    char *data_ptr;
 
 	sin.sin_family = AF_INET;
-	sin.sin_port = htons(dst_port);
+	sin.sin_port = htons(80);
 	sin.sin_addr.s_addr = inet_addr (dst_ip);
 
+    data_ptr = datagram + sizeof(struct iphdr) + sizeof(struct udphdr);
+    memcpy(data_ptr, data, data_len);
+
     setup_ip_header(src_ip, dst_ip, datagram, &psh, data_len, &sin);
-    setup_udp_header(6000, dst_port, datagram, &psh);
-    calculate_udp_checksum(data, data_len, datagram, &psh);
+    setup_udp_header(5060, dst_port, datagram, &psh);
+    calculate_udp_checksum(data_len, datagram, &psh);
 
     if (sendto (sock, datagram, iph->tot_len ,	0, (struct sockaddr *) &sin, sizeof (sin)) < 0) {
         perror("sendto failed");
@@ -148,21 +152,23 @@ int send_raw_socket(const char *data, int data_len, int sock) {
     return 1;
 }
 
+
 int test_raw_socket (void) {
-    const char *data = "OPTIONS sip:sip.pstnhub.microsoft.com SIP/2.0\n"
-                 "Via: SIP/2.0/UDP 115.241.233.126:5061;branch=z9hG4bK167450905\n"
-                 "From: <sip:edgemarcteams.customers.interopdomain.com>;tag=f5GGZPPiwkYhhn5ZI4D7D33B9130367d\n"
-                 "To: <sip:sip.pstnhub.microsoft.com>\n"
-                 "Call-ID: 1740902616@115.241.233.126\n"
-                 "CSeq: 786 OPTIONS\n"
-                 "Contact: <sip:edgemarcteams.customers.interopdomain.com:5061;transport=udp>\n"
-                 "Max-Forwards: 70\n"
-                 "X-MS-SBC: Ribbon Communications/EdgeMarc 2900/16.3.1.smohammed.a1a2a05\n"
-                 "User-Agent: ewb2bua/16.3.1.smohammed.a1a2a05\n"
-                 "Content-Length: 0";
+    const char *data1 = "REGISTER sip:1.1.1.56 SIP/2.0\n"
+"Via: SIP/2.0/UDP 1.1.1.137:5060;branch=z9hG4bK148898075\n"
+"Route: <sip:115.241.233.129:5060;lr>\n"
+"From: <sip:9556952001@1.1.1.137>;tag=f5GGZRL0eR1BsAfcv3761D6035017196\n"
+"To: <sip:9556952001@1.1.1.137>\n"
+"Call-ID: 220012672@115.241.233.126\n"
+"CSeq: 1345 REGISTER\n"
+"Contact: <sip:9556952001@1.1.1.137:5060>\n"
+"Max-Forwards: 70\n"
+"User-Agent: ewb2bua/16.4.0RC1.smohammed.80e2b7b_changed\n"
+"Expires: 3600\n"
+"Content-Length: 0\n";
 
     int sock = setup_socket();
-    send_raw_socket(data, strlen(data), sock);
+    send_raw_socket(data1, strlen(data1), sock);
 	return 0;
 }
 

@@ -12,7 +12,7 @@ static size_t rtp_offset = -1;
 static int frame_nr = -1;
 static struct timeval start_tv = {0, 0};
 
-static void hexdump(const void *ptr, size_t size) {
+void hexdump(const void *ptr, size_t size) {
     size_t i, j;
     const unsigned char *cptr = (unsigned char *)ptr;
 

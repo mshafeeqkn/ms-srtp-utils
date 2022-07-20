@@ -1,5 +1,5 @@
 CC=g++
-EXEC=run
+EXEC=pump
 CFLAGS=-Wall -Werror
 CPPFLAGS=
 LDFLAGS=-lpcap
@@ -13,6 +13,10 @@ $(OBJ_DIR)/%.o: %.c
 
 $(EXEC): $(OBJS)
 	$(CC) $(OBJS) $(LDFLAGS) -o $(EXEC)
+
+run:
+	sudo ./$(EXEC)
+.PHONY: run
 
 all: $(EXEC)
 
