@@ -6,9 +6,7 @@
 
 #include "socket.h"
 
-extern int test_raw_socket (void);
-
-static size_t rtp_offset = -1;
+static size_t rtp_offset = 0;
 static int frame_nr = -1;
 static struct timeval start_tv = {0, 0};
 
@@ -31,6 +29,7 @@ void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *bytes)
     unsigned char buffer[2048];
     size_t pktsize;
     struct timeval delta;
+    int sock = (int)*arg;
 
     frame_nr += 1;
 
@@ -49,17 +48,20 @@ void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *bytes)
     timersub(&hdr->ts, &start_tv, &delta);
     printf("%02ld:%02ld.%06lu       [len: %d]\n", delta.tv_sec/60, delta.tv_sec%60, delta.tv_usec, hdr->caplen);
 
-    hexdump(bytes, hdr->caplen);
+    // hexdump(bytes, hdr->caplen);
     hexdump(buffer, pktsize);
+
+    send_raw_socket("1.1.1.137", "1.1.1.56", 5060, 5060, buffer, pktsize, sock);
     if(frame_nr == 5)
         exit(1);
 }
 
 int main(int argc, char *argv[]) {
-#if 0
+#if 1
     pcap_t *pcap;
     char errbuf[PCAP_ERRBUF_SIZE];
     struct bpf_program pcap_filter;
+    int sock = setup_socket();
 
     pcap = pcap_open_offline("srtp_srtcp.pcap", errbuf);
     if (!pcap) {
@@ -73,7 +75,7 @@ int main(int argc, char *argv[]) {
         pcap_setfilter(pcap, &pcap_filter);
     }
 
-    if (rtp_offset == -1) {
+    if (rtp_offset == 0) {
         switch(pcap_datalink(pcap)) {
             case DLT_LINUX_SLL:
                 rtp_offset = 44;
@@ -84,7 +86,7 @@ int main(int argc, char *argv[]) {
         }  
     }
 
-    pcap_loop(pcap, 0, handle_pkt, NULL);
+    pcap_loop(pcap, 0, handle_pkt, (u_char*)&sock);
 #else
     test_raw_socket();
 #endif

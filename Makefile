@@ -21,4 +21,4 @@ run:
 all: $(EXEC)
 
 clean:
-	rm -rf $(OBJ_DIR)/* $(EXEC)
+	rm -rvf $(OBJ_DIR)/* $(EXEC)

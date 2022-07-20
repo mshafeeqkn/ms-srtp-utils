@@ -1,18 +1,4 @@
-#include <stdio.h>
-
 #include "socket.h"
-
-/*
-	Raw UDP sockets
-*/
-#include<stdio.h>	//for printf
-#include<string.h> //memset
-#include<sys/socket.h>	//for socket ofcourse
-#include<stdlib.h> //for exit(0);
-#include<errno.h> //For errno - the error number
-#include<netinet/udp.h>	//Provides declarations for udp header
-#include<netinet/ip.h>	//Provides declarations for ip header
-#include<arpa/inet.h>
 /*
 	96 bit (12 bytes) pseudo header needed for udp header checksum calculation
 */
@@ -120,17 +106,16 @@ void calculate_udp_checksum(int data_len, char *datagram, struct pseudo_header *
     memcpy(pseudo_gram, (char *)psh, sizeof(struct pseudo_header));
     memcpy(pseudo_gram + sizeof(struct pseudo_header), udph, sizeof(struct udphdr) + data_len);
 	udph->check = csum( (unsigned short*) pseudo_gram , pseudo_hdr_size);
-    printf("calculated checksum: %x\n", udph->check);
+    free(pseudo_gram);
 }
 
-int send_raw_socket(const char *data, int data_len, int sock) {
+int send_raw_socket(const char *src_ip, const char *dst_ip,
+        uint16_t src_port, uint16_t dst_port,
+        const unsigned char *data, int data_len, int sock) {
     char datagram[4096] = {0};
     struct pseudo_header psh = {0};
     struct iphdr *iph = (struct iphdr *) datagram;
 	struct sockaddr_in sin;
-    const char *dst_ip = "1.1.1.56";
-    const char *src_ip = "1.1.1.137";
-    uint16_t dst_port = 5060;
     char *data_ptr;
 
 	sin.sin_family = AF_INET;
@@ -141,7 +126,7 @@ int send_raw_socket(const char *data, int data_len, int sock) {
     memcpy(data_ptr, data, data_len);
 
     setup_ip_header(src_ip, dst_ip, datagram, &psh, data_len, &sin);
-    setup_udp_header(5060, dst_port, datagram, &psh);
+    setup_udp_header(src_port, dst_port, datagram, &psh);
     calculate_udp_checksum(data_len, datagram, &psh);
 
     if (sendto (sock, datagram, iph->tot_len ,	0, (struct sockaddr *) &sin, sizeof (sin)) < 0) {
@@ -167,8 +152,13 @@ int test_raw_socket (void) {
 "Expires: 3600\n"
 "Content-Length: 0\n";
 
+    const char *dst_ip = "1.1.1.56";
+    const char *src_ip = "1.1.1.137";
+    uint16_t dst_port = 5060;
+    uint16_t src_port = 5060;
+
     int sock = setup_socket();
-    send_raw_socket(data1, strlen(data1), sock);
+    send_raw_socket(src_ip, dst_ip, src_port, dst_port, (const unsigned char*)data1, strlen(data1), sock);
 	return 0;
 }
 
