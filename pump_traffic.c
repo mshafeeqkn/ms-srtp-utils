@@ -6,16 +6,18 @@
 
 #include "socket.h"
 
-static int rtp_offset = -1;
+extern int test_raw_socket (void);
+
+static size_t rtp_offset = -1;
 static int frame_nr = -1;
 static struct timeval start_tv = {0, 0};
 
 static void hexdump(const void *ptr, size_t size) {
-    int i, j;
+    size_t i, j;
     const unsigned char *cptr = (unsigned char *)ptr;
 
     for (i = 0; i < size; i += 16) {
-        printf("%04x  ", i);
+        printf("%04x  ", (int)i);
         for (j = 0; j < 16 && i+j < size; j++) {
             printf("%02x ", cptr[i+j]);
             if(j == 7)
@@ -25,7 +27,7 @@ static void hexdump(const void *ptr, size_t size) {
     }
 }
 
-static void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *bytes) {
+void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *bytes) {
     unsigned char buffer[2048];
     size_t pktsize;
     struct timeval delta;
@@ -48,12 +50,13 @@ static void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char 
     printf("%02ld:%02ld.%06lu       [len: %d]\n", delta.tv_sec/60, delta.tv_sec%60, delta.tv_usec, hdr->caplen);
 
     hexdump(bytes, hdr->caplen);
-    // hexdump(buffer, pktsize);
+    hexdump(buffer, pktsize);
     if(frame_nr == 5)
         exit(1);
 }
 
 int main(int argc, char *argv[]) {
+#if 0
     pcap_t *pcap;
     char errbuf[PCAP_ERRBUF_SIZE];
     struct bpf_program pcap_filter;
@@ -82,4 +85,7 @@ int main(int argc, char *argv[]) {
     }
 
     pcap_loop(pcap, 0, handle_pkt, NULL);
+#else
+    test_raw_socket();
+#endif
 }

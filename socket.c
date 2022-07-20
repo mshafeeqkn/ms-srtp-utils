@@ -66,7 +66,7 @@ int setup_socket() {
     return s;
 }
 
-int setup_ip_header(char *src_ip, char *dst_ip, char *datagram,
+int setup_ip_header(const char *src_ip, const char *dst_ip, char *datagram,
         struct pseudo_header *psh, int data_len, struct sockaddr_in *sin) {
     struct iphdr *iph = (struct iphdr *) datagram;
     static int pkt_id = 57853;
@@ -106,7 +106,7 @@ int setup_udp_header(uint16_t src, uint16_t dst, char *datagram, struct pseudo_h
     return 0;
 }
 
-void calculate_udp_checksum(char *data, int data_len, char *datagram, struct pseudo_header *psh) {
+void calculate_udp_checksum(const char *data, int data_len, char *datagram, struct pseudo_header *psh) {
     char *data_ptr, *pseudo_gram;
     int pseudo_hdr_size;
 	struct udphdr *udph = (struct udphdr *) (datagram + sizeof (struct ip));
@@ -116,26 +116,27 @@ void calculate_udp_checksum(char *data, int data_len, char *datagram, struct pse
     memcpy(data_ptr, data, data_len);
 
     pseudo_hdr_size = sizeof(struct pseudo_header) + sizeof(struct udphdr) + strlen(data);
-    pseudo_gram = malloc(pseudo_hdr_size);
+    pseudo_gram = (char *)malloc(pseudo_hdr_size);
     memcpy(pseudo_gram, (char *)psh, sizeof(struct pseudo_header));
     memcpy(pseudo_gram + sizeof(struct pseudo_header), udph, sizeof(struct udphdr) + data_len);
 	udph->len = htons(8 + data_len);
 	udph->check = csum( (unsigned short*) pseudo_gram , pseudo_hdr_size);
 }
 
-int send_raw_socket(char *data, int data_len, int sock) {
+int send_raw_socket(const char *data, int data_len, int sock) {
     char datagram[4096] = {0};
     struct pseudo_header psh = {0};
     struct iphdr *iph = (struct iphdr *) datagram;
 	struct sockaddr_in sin;
-    char *dst_ip = "172.16.1.56";
+    const char *dst_ip = "172.16.1.56";
+    const char *src_ip = "172.16.1.137";
     uint16_t dst_port = 5060;
 
 	sin.sin_family = AF_INET;
 	sin.sin_port = htons(dst_port);
 	sin.sin_addr.s_addr = inet_addr (dst_ip);
 
-    setup_ip_header("172.16.1.137", dst_ip, datagram, &psh, data_len, &sin);
+    setup_ip_header(src_ip, dst_ip, datagram, &psh, data_len, &sin);
     setup_udp_header(6000, dst_port, datagram, &psh);
     calculate_udp_checksum(data, data_len, datagram, &psh);
 
@@ -144,10 +145,11 @@ int send_raw_socket(char *data, int data_len, int sock) {
     } else {
         printf ("Packet Send. Length : %d \n" , iph->tot_len);
     }
+    return 1;
 }
 
-int main (void) {
-    char *data = "OPTIONS sip:sip.pstnhub.microsoft.com SIP/2.0\n"
+int test_raw_socket (void) {
+    const char *data = "OPTIONS sip:sip.pstnhub.microsoft.com SIP/2.0\n"
                  "Via: SIP/2.0/UDP 115.241.233.126:5061;branch=z9hG4bK167450905\n"
                  "From: <sip:edgemarcteams.customers.interopdomain.com>;tag=f5GGZPPiwkYhhn5ZI4D7D33B9130367d\n"
                  "To: <sip:sip.pstnhub.microsoft.com>\n"

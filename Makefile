@@ -1,6 +1,6 @@
 CC=g++
 EXEC=run
-CFLAGS=
+CFLAGS=-Wall -Werror
 CPPFLAGS=
 LDFLAGS=-lpcap
 OBJ_DIR=objs
