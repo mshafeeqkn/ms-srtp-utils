@@ -82,6 +82,7 @@ int setup_ip_header(const char *src_ip, const char *dst_ip, char *datagram,
 int setup_udp_header(uint16_t src, uint16_t dst, char *datagram, struct pseudo_header *psh) {
 	struct udphdr *udph = (struct udphdr *) (datagram + sizeof (struct ip));
 
+    printf("Setting up udp header: %d %d\n", src, dst);
 	//UDP header
 	udph->source = htons (src);
 	udph->dest = htons (dst);
@@ -131,34 +132,6 @@ int send_raw_socket(const char *src_ip, const char *dst_ip,
 
     if (sendto (sock, datagram, iph->tot_len ,	0, (struct sockaddr *) &sin, sizeof (sin)) < 0) {
         perror("sendto failed");
-    } else {
-        printf ("Packet Send. Length : %d \n" , iph->tot_len);
     }
     return 1;
 }
-
-
-int test_raw_socket (void) {
-    const char *data1 = "REGISTER sip:1.1.1.56 SIP/2.0\n"
-"Via: SIP/2.0/UDP 1.1.1.137:5060;branch=z9hG4bK148898075\n"
-"Route: <sip:115.241.233.129:5060;lr>\n"
-"From: <sip:9556952001@1.1.1.137>;tag=f5GGZRL0eR1BsAfcv3761D6035017196\n"
-"To: <sip:9556952001@1.1.1.137>\n"
-"Call-ID: 220012672@115.241.233.126\n"
-"CSeq: 1345 REGISTER\n"
-"Contact: <sip:9556952001@1.1.1.137:5060>\n"
-"Max-Forwards: 70\n"
-"User-Agent: ewb2bua/16.4.0RC1.smohammed.80e2b7b_changed\n"
-"Expires: 3600\n"
-"Content-Length: 0\n";
-
-    const char *dst_ip = "1.1.1.56";
-    const char *src_ip = "1.1.1.137";
-    uint16_t dst_port = 5060;
-    uint16_t src_port = 5060;
-
-    int sock = setup_socket();
-    send_raw_socket(src_ip, dst_ip, src_port, dst_port, (const unsigned char*)data1, strlen(data1), sock);
-	return 0;
-}
-
