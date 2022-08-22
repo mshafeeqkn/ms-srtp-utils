@@ -59,16 +59,11 @@ void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *bytes)
 
     // hexdump(bytes, hdr->caplen);
     int isRTCP = (buffer[1] >= 193 && buffer[1] <= 223);
-    printf("%d Is RTCP: %d\n", frame_nr, isRTCP);
     // hexdump(buffer, pktsize);
     usleep(25000);
     uint16_t src = cb_data->src + isRTCP;
     uint16_t dst = cb_data->dst + isRTCP;
-    printf("Message path %s:%d->%s:%d\n", cb_data->src_ip, src, cb_data->dst_ip, dst);
     send_raw_socket(cb_data->src_ip, cb_data->dst_ip, src, dst, buffer, pktsize, cb_data->sock);
-
-    if(frame_nr > 5)
-        exit(0);
 }
 
 int main(int argc, char *argv[]) {

@@ -82,7 +82,6 @@ int setup_ip_header(const char *src_ip, const char *dst_ip, char *datagram,
 int setup_udp_header(uint16_t src, uint16_t dst, char *datagram, struct pseudo_header *psh) {
 	struct udphdr *udph = (struct udphdr *) (datagram + sizeof (struct ip));
 
-    printf("Setting up udp header: %d %d\n", src, dst);
 	//UDP header
 	udph->source = htons (src);
 	udph->dest = htons (dst);

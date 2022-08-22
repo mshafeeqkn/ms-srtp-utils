@@ -20,5 +20,8 @@ run:
 
 all: $(EXEC)
 
+install:
+	cp $(EXEC) /usr/local/bin/pump
+
 clean:
 	rm -rvf $(OBJ_DIR)/* $(EXEC)
