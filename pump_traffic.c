@@ -10,6 +10,8 @@
 static size_t rtp_offset = 0;
 static int frame_nr = -1;
 static struct timeval start_tv = {0, 0};
+static struct timeval current_tv = {0, 0};
+static struct timeval incr_time = {0, 20000};
 
 struct callback_arg {
     char *src_ip;
@@ -17,6 +19,7 @@ struct callback_arg {
     uint16_t src;
     uint16_t dst;
     int sock;
+    pcap_dumper_t *dumper;
 };
 
 void hexdump(const void *ptr, size_t size) {
@@ -37,7 +40,7 @@ void hexdump(const void *ptr, size_t size) {
 void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *bytes) {
     unsigned char buffer[2048];
     size_t pktsize;
-    struct timeval delta;
+    struct pcap_pkthdr h;
     struct callback_arg *cb_data = (struct callback_arg *)arg;
 
     frame_nr += 1;
@@ -52,27 +55,35 @@ void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *bytes)
 
     if (frame_nr == 0) {
         start_tv = hdr->ts;
+        current_tv.tv_sec = 0;
+        current_tv.tv_usec = 0;
     } 
 
-    timersub(&hdr->ts, &start_tv, &delta);
-    printf("%02ld:%02ld.%06lu [len: %d]\n", delta.tv_sec/60, delta.tv_sec%60, delta.tv_usec, hdr->caplen);
+    timeradd(&current_tv, &incr_time, &current_tv);
+    h.ts.tv_sec = current_tv.tv_sec;
+    h.ts.tv_usec = current_tv.tv_usec;
+    h.caplen = hdr->caplen;
+    h.len = hdr->len;
 
+    printf("%02ld:%02ld.%06lu [len: %d]\n", h.ts.tv_sec/60, h.ts.tv_sec%60, h.ts.tv_usec, h.caplen);
+
+    pktsize = pktsize;
+    pcap_dump((unsigned char*)cb_data->dumper, &h, bytes);
     // hexdump(bytes, hdr->caplen);
-    int isRTCP = (buffer[1] >= 193 && buffer[1] <= 223);
+    // int isRTCP = (buffer[1] >= 193 && buffer[1] <= 223);
     // hexdump(buffer, pktsize);
-    usleep(25000);
-    uint16_t src = cb_data->src + isRTCP;
-    uint16_t dst = cb_data->dst + isRTCP;
-    send_raw_socket(cb_data->src_ip, cb_data->dst_ip, src, dst, buffer, pktsize, cb_data->sock);
+    // uint16_t src = cb_data->src + isRTCP;
+    // uint16_t dst = cb_data->dst + isRTCP;
+    // send_raw_socket(cb_data->src_ip, cb_data->dst_ip, src, dst, buffer, pktsize, cb_data->sock);
 }
 
 int main(int argc, char *argv[]) {
-    pcap_t *pcap;
+    pcap_t *pcap, *pd;
     char errbuf[PCAP_ERRBUF_SIZE];
     struct bpf_program pcap_filter;
 
-    if(argc != 5) {
-        fprintf(stderr, "Command Format:\n\n\t%s <src-ip> <dst-ip> <src-port> <dst-port>\n", argv[0]);
+    if(argc != 2) {
+        fprintf(stderr, "Command Format:\n\n\t%s <pcap-file>", argv[0]);
         return -1;
     }
 
@@ -85,12 +96,15 @@ int main(int argc, char *argv[]) {
         .sock = sock
     };
 
-    pcap = pcap_open_offline("srtp_srtcp.pcap", errbuf);
+    pcap = pcap_open_offline(argv[1], errbuf);
     if (!pcap) {
         fprintf(stderr, "libpcap failed to open file '%s'\n", errbuf);
         exit(1);
     }
     assert(pcap != NULL);
+
+    pd = pcap_open_dead(DLT_EN10MB, 65535);
+    arg.dumper = pcap_dump_open(pd, "out.pcap");
 
     // We are only interested in udp traffic
     if (pcap_compile(pcap, &pcap_filter, "udp", 1, PCAP_NETMASK_UNKNOWN) == 0) {
