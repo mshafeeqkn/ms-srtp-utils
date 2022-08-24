@@ -8,15 +8,16 @@
 
 #define     PACKET_COUNT    (1 * 10)      // The packet count may be changed if the pcap having packet loss
 
-static size_t rtp_offset = 0;
-static int frame_nr = 0;
-static struct timeval start_tv = {0, 0};
-static struct timeval current_tv = {0, 0};
-static struct timeval incr_time = {0, 20000};
+static size_t   rtp_offset = 0;
+static uint32_t frame_nr = 0;
+static struct   timeval start_tv = {0, 0};
+static struct   timeval current_tv = {0, 0};
+static struct   timeval incr_time = {0, 20000};
 
 struct callback_arg {
     pcap_dumper_t *dumper;
     pcap_t        *pcap;
+    uint32_t       packet_count;
     uint16_t       seq_skip_start;
     uint32_t       fr_nr_skip_start;
     uint32_t       skip_count;
@@ -55,7 +56,6 @@ static int skip_count = 0;
 void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *bytes) {
     struct pcap_pkthdr h;
     struct callback_arg *cb_data = (struct callback_arg *)arg;
-    uint16_t seq_num = ((bytes[0x2C] << 8) | bytes[0x2D]);
 
     frame_nr += 1;
 
@@ -77,7 +77,8 @@ void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *bytes)
 
     // Take packets from beginning of the pcap if the we don't have enough packet
     // before skip start.
-    int start_limit = (cb_data->fr_nr_skip_start > PACKET_COUNT) ? cb_data->fr_nr_skip_start - PACKET_COUNT : 0;
+    uint32_t start_limit = (cb_data->fr_nr_skip_start > cb_data->packet_count) ?
+                                cb_data->fr_nr_skip_start - cb_data->packet_count : 0;
     if(frame_nr < start_limit)
         return;
 
@@ -87,7 +88,7 @@ void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *bytes)
         return;
     }
 
-    if(frame_nr >= cb_data->fr_nr_skip_start + cb_data->skip_count + PACKET_COUNT)
+    if(frame_nr >= cb_data->fr_nr_skip_start + cb_data->skip_count + cb_data->packet_count)
         return;
 
     timeradd(&current_tv, &incr_time, &current_tv);
@@ -101,6 +102,7 @@ void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *bytes)
 
 void print_help(char *prog_name) {
     printf("\n"
+           "Timeshifter v1.0 - Written by Mohammed Shafeeque\n"
            "Command Format:\n"
            "    %s [-b <seq_skip_start>] [-s <skip>] <pcap-file>\n"
            "\n"
@@ -119,6 +121,11 @@ void print_help(char *prog_name) {
            "\n"
            "    -s count\n"
            "        Number of packets to be skipped\n"
+           "\n"
+           "    -p count\n"
+           "        If -b and -s are not specified, the output pcap will have 'count'\n"
+           "        number of packets. If they are specified, 'count' number of packets\n"
+           "        will be exported before and after the skipped packets.\n"
            "\n", prog_name);
 }
 
@@ -144,21 +151,28 @@ pcap_t *get_pcap_offline(char *pcap_name) {
 int main(int argc, char *argv[]) {
     pcap_t *pd, *pcap;
     int opt;
-    int begin_skip = 0;
-    int skip_count = 0;
     char *pcap_name = NULL;
     struct callback_arg arg = {0};
     char out_file[128] = {0};
+    uint32_t packet_count = PACKET_COUNT;
+    uint32_t begin_skip = 0;
+    uint32_t skip_count = 0;
 
     while(optind < argc) {
-        if((opt = getopt(argc, argv, "b:s:")) != -1) {
+        if((opt = getopt(argc, argv, "p:b:s:h")) != -1) {
             switch(opt) {
                 case 'b':
                     begin_skip = atoi(optarg);
                     break;
+                case 'p':
+                    packet_count = atoi(optarg);
+                    break;
                 case 's':
                     skip_count = atoi(optarg);
                     break;
+                case 'h':
+                    print_help(argv[0]);
+                    exit(1);
             }
         } else {
             pcap_name = argv[optind];
@@ -166,7 +180,7 @@ int main(int argc, char *argv[]) {
         }
     }
 
-    if(!begin_skip || !skip_count || !pcap_name) {
+    if(!pcap_name) {
         print_help(argv[0]);
         return 1;
     }
@@ -181,6 +195,7 @@ int main(int argc, char *argv[]) {
     arg.seq_skip_start  = begin_skip;
     arg.skip_count      = skip_count;
     arg.pcap            = get_pcap_offline(pcap_name);
+    arg.packet_count    = packet_count;
 
     if (rtp_offset == 0) {
         switch(pcap_datalink(arg.pcap)) {

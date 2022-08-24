@@ -1,6 +1,6 @@
 CC=g++
-EXEC=pump
-# CFLAGS=-Wall -Werror
+EXEC=timeshifter
+CFLAGS=-Wall -Werror
 CPPFLAGS=
 LDFLAGS=-lpcap
 OBJ_DIR=objs
