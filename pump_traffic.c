@@ -39,7 +39,6 @@ void hexdump(const void *ptr, size_t size) {
 
 void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *bytes) {
     unsigned char buffer[2048];
-    size_t pktsize;
     struct pcap_pkthdr h;
     struct callback_arg *cb_data = (struct callback_arg *)arg;
 
@@ -51,7 +50,6 @@ void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *bytes)
     }
 
     memcpy(buffer, bytes + rtp_offset, hdr->caplen - rtp_offset);
-    pktsize = hdr->caplen - rtp_offset;
 
     if (frame_nr == 0) {
         start_tv = hdr->ts;
@@ -65,16 +63,7 @@ void handle_pkt(u_char *arg, const struct pcap_pkthdr *hdr, const u_char *bytes)
     h.caplen = hdr->caplen;
     h.len = hdr->len;
 
-    printf("%02ld:%02ld.%06lu [len: %d]\n", h.ts.tv_sec/60, h.ts.tv_sec%60, h.ts.tv_usec, h.caplen);
-
-    pktsize = pktsize;
     pcap_dump((unsigned char*)cb_data->dumper, &h, bytes);
-    // hexdump(bytes, hdr->caplen);
-    // int isRTCP = (buffer[1] >= 193 && buffer[1] <= 223);
-    // hexdump(buffer, pktsize);
-    // uint16_t src = cb_data->src + isRTCP;
-    // uint16_t dst = cb_data->dst + isRTCP;
-    // send_raw_socket(cb_data->src_ip, cb_data->dst_ip, src, dst, buffer, pktsize, cb_data->sock);
 }
 
 int main(int argc, char *argv[]) {
